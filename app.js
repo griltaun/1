@@ -1,0 +1,21 @@
+// Пример каталога. Цены и ассортимент можно заменить на актуальные из меню кафе.
+const menu=[
+{id:1,title:"Шашлык",category:"Шашлык",price:500,desc:"Сочный шашлык с огня",photo:"shashlik.jpg"},
+{id:2,title:"Шашлык из курицы",category:"Шашлык",price:420,desc:"Нежное куриное мясо",photo:"chicken.jpg"},
+{id:3,title:"Люля-кебаб",category:"Шашлык",price:390,desc:"С пряностями и зеленью",photo:"lula.jpg"},
+{id:4,title:"Картофель фри",category:"Гарниры",price:180,desc:"Золотистый и хрустящий",photo:"fries.jpg"},
+{id:5,title:"Овощи на гриле",category:"Гарниры",price:230,desc:"Овощи с ароматом гриля",photo:"veggies.jpg"},
+{id:6,title:"Картофель по-деревенски",category:"Гарниры",price:200,desc:"Картофельные дольки",photo:"potato.jpg"},
+{id:7,title:"Борщ",category:"Супы",price:300,desc:"Домашний суп",photo:"borscht.jpg"},
+{id:8,title:"Куриный суп",category:"Супы",price:280,desc:"Лёгкий суп с курицей",photo:"soup.jpg"}];
+let basket={},category="Все";const fmt=n=>new Intl.NumberFormat("ru-RU").format(n)+" ₽";
+const $=s=>document.querySelector(s);
+function drawTabs(){let cats=["Все",...new Set(menu.map(x=>x.category))];$("#tabs").innerHTML=cats.map(c=>`<button class="tab ${c===category?"active":""}" data-cat="${c}">${c}</button>`).join("");document.querySelectorAll("[data-cat]").forEach(b=>b.onclick=()=>{category=b.dataset.cat;drawTabs();drawProducts()})}
+function drawProducts(){let list=menu.filter(p=>category==="Все"||p.category===category);$("#products").innerHTML=list.map(p=>`<article class="product"><div class="photo"><img src="assets/${p.photo}" alt="${p.title}" onerror="this.style.display='none';this.parentElement.textContent='✳'"></div><h3>${p.title}</h3><p>${p.desc}</p><div class="prod-foot"><b>${fmt(p.price)}</b><button class="add" data-add="${p.id}">В корзину +</button></div></article>`).join("");document.querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>{basket[b.dataset.add]=(basket[b.dataset.add]||0)+1;drawBasket()})}
+function drawBasket(){let entries=Object.entries(basket).filter(([id,q])=>q);$("#count").textContent=entries.reduce((s,[id,q])=>s+q,0);$("#cartRows").innerHTML=entries.length?entries.map(([id,q])=>{let p=menu.find(x=>x.id==id);return `<div class="cartline"><span>${p.title}<br><small>${fmt(p.price)} × ${q}</small></span><span class="qty"><button data-minus="${id}">−</button> ${q} <button data-plus="${id}">+</button></span></div>`}).join(""):"<p>Корзина пока пустая.</p>";let total=entries.reduce((s,[id,q])=>s+menu.find(p=>p.id==id).price*q,0);$("#sum").textContent=fmt(total);$("#paySum").textContent=fmt(total);document.querySelectorAll("[data-minus]").forEach(b=>b.onclick=()=>{basket[b.dataset.minus]--;if(!basket[b.dataset.minus])delete basket[b.dataset.minus];drawBasket()});document.querySelectorAll("[data-plus]").forEach(b=>b.onclick=()=>{basket[b.dataset.plus]++;drawBasket()})}
+function openCart(){ $("#drawer").classList.add("show");$("#shade").classList.add("show")}function closeCart(){$("#drawer").classList.remove("show");$("#shade").classList.remove("show")}
+$("#openCart").onclick=openCart;$("#closeCart").onclick=closeCart;$("#shade").onclick=closeCart;
+$("#toCheckout").onclick=()=>{if(!Object.values(basket).some(Boolean)){alert("Добавьте блюда в корзину.");return}closeCart();$("#checkoutForm").classList.add("show");$("#formShade").classList.add("show")};
+$("#closeForm").onclick=()=>{$("#checkoutForm").classList.remove("show");$("#formShade").classList.remove("show")};
+$("#checkoutForm").onsubmit=async e=>{e.preventDefault();let payload=Object.fromEntries(new FormData(e.target));payload.items=Object.entries(basket).filter(([id,q])=>q).map(([id,q])=>({productId:+id,quantity:q}));try{let r=await fetch("/api/create-payment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});let d=await r.json();if(!r.ok)throw Error(d.error||"Не удалось создать оплату");location.href=d.confirmationUrl}catch(err){alert("Не удалось перейти к оплате. Проверьте подключение или попробуйте позже.\\n"+err.message)}};
+drawTabs();drawProducts();drawBasket();
